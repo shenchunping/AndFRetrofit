@@ -1,0 +1,125 @@
+apply plugin: 'com.android.library'
+
+android {
+    compileSdkVersion 26
+
+
+
+    defaultConfig {
+        minSdkVersion 15
+        targetSdkVersion 26
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+    lintOptions {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+
+    implementation 'com.android.support:appcompat-v7:26.1.0'
+    testImplementation 'junit:junit:4.12'
+    androidTestImplementation 'com.android.support.test:runner:1.0.1'
+    androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.1'
+    //gson
+    implementation 'com.google.code.gson:gson:2.7'
+    //日志打印
+    implementation 'com.orhanobut:logger:2.1.1'
+    //异步处理
+    implementation 'io.reactivex:rxandroid:1.2.1'
+    implementation 'io.reactivex:rxjava:1.1.6'
+    //网络通信
+    implementation 'com.squareup.okhttp3:okhttp:3.5.0'
+    implementation 'com.squareup.okhttp3:logging-interceptor:3.5.0'
+    implementation 'com.squareup.okhttp3:okhttp-urlconnection:3.5.0'
+    implementation 'com.squareup.okio:okio:1.11.0'
+    //接口封装
+    implementation 'com.squareup.retrofit2:retrofit:2.1.0'
+//    implementation 'com.squareup.retrofit2:converter-gson:2.1.0'
+    implementation 'com.squareup.retrofit2:adapter-rxjava:2.1.0'
+    implementation ('com.squareup.retrofit2:converter-simplexml:2.0.1'){
+        exclude group: 'xpp3', module: 'xpp3'
+        exclude group: 'stax', module: 'stax-api'
+        exclude group: 'stax', module: 'stax'
+    }
+}
+
+
+
+task makeApiJar(type: Jar) {
+    from file('build/intermediates/classes/release')
+    from fileTree(dir: 'src/main', includes: ['assets/**'])
+    def name = 'andapi-V' + android.defaultConfig.versionName + '.jar'
+    delete 'build/outputs/' + name
+    //目标文件名称
+    archiveName = name
+    destinationDir = file('build/outputs')
+    //移除文件
+    exclude "com/we/scp/andapi/BuildConfig.class"
+    exclude "com/we/scp/andapi/BuildConfig\$*.class"
+    exclude "**/R.class"
+    exclude "**/R\$*.class"
+    //只导入资源路径集下的部分资源
+    include "com/we/scp/andapi/**.class"
+    include "com/we/scp/andapi/**/**.class"
+    include "assets/**"
+}
+
+task proguardApiJar(type: proguard.gradle.ProGuardTask, dependsOn: makeApiJar) {
+    def name = 'andapi-V' + android.defaultConfig.versionName + '.jar'
+    def outFile = 'build/outputs/andapi-pro-V' + android.defaultConfig.versionName + '.jar'
+    def inFile = 'build/outputs/' + name
+    delete outFile
+    // 未混淆的jar
+    injars inFile
+    // 混淆后的jar路径
+    outjars outFile
+    // 具体需要keep住的类
+    configuration 'proguard-rules.pro'
+    delete inFile
+}
+
+tasks.withType(JavaCompile) {
+    options.encoding = "UTF-8"
+    options.compilerArgs << "-Xlint:unchecked"
+}
+
+task apiJavaDoc(type: Javadoc) {
+    title = 'andapi-V' + android.defaultConfig.versionName + 'API'
+    source = android.sourceSets.main.java.srcDirs
+    classpath += project.files(android.getBootClasspath().join(File.pathSeparator))
+    ext.androidJar = "${android.sdkDirectory}/platforms/${android.compileSdkVersion}/android.jar"
+    exclude '**/BuildConfig.java'
+    exclude '**/R.java'
+    include "com/we/scp/andapi/**.java"
+    include "com/we/scp/andapi/**/**.java"
+}
+
+apiJavaDoc {
+    options {
+        encoding "UTF-8"
+        charSet 'UTF-8'
+        author true
+        version true
+        links "http://docs.oracle.com/javase/7/docs/api"
+    }
+}
+
+
+proguardApiJar.dependsOn(makeApiJar, build)
+makeApiJar.dependsOn(build)
+apiJavaDoc.dependsOn(build)
